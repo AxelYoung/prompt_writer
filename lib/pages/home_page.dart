@@ -4,6 +4,7 @@ import '../services/task_service.dart';
 import '../services/model_service.dart';
 import '../models/prompt_config.dart';
 import '../models/task_config.dart';
+import 'package:window_manager/window_manager.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -65,233 +66,243 @@ class _HomePageState extends State<HomePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 标题部分
-            Text(
-              'Prompt Writer',
-              style: textTheme.displaySmall?.copyWith(
-                color: colorScheme.primary,
-                fontWeight: FontWeight.bold,
+            DragToMoveArea(
+              child: Text(
+                'Prompt Writer',
+                style: textTheme.displaySmall?.copyWith(
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
             const SizedBox(height: 32),
             
             // 配置选择部分
-            Card(
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: BorderSide(color: colorScheme.outlineVariant),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '配置选择',
-                      style: textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 24),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildConfigDropdown(
-                            label: 'API 配置',
-                            value: selectedApiConfig,
-                            items: apiConfigs.map((config) {
-                              return DropdownMenuItem(
-                                value: config,
-                                child: Text(config.name),
-                              );
-                            }).toList(),
-                            onChanged: (value) {
-                              if (value != null) {
-                                setState(() => selectedApiConfig = value);
-                              }
-                            },
+            MouseRegion(
+              cursor: SystemMouseCursors.basic,
+              child: Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: colorScheme.outlineVariant),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '配置选择',
+                        style: textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: 24),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildConfigDropdown(
+                              label: 'API 配置',
+                              value: selectedApiConfig,
+                              items: apiConfigs.map((config) {
+                                return DropdownMenuItem(
+                                  value: config,
+                                  child: Text(config.name),
+                                );
+                              }).toList(),
+                              onChanged: (value) {
+                                if (value != null) {
+                                  setState(() => selectedApiConfig = value);
+                                }
+                              },
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: _buildConfigDropdown(
-                            label: '任务配置',
-                            value: selectedTaskConfig,
-                            items: taskConfigs.map((config) {
-                              return DropdownMenuItem(
-                                value: config,
-                                child: Text(config.name),
-                              );
-                            }).toList(),
-                            onChanged: (value) {
-                              if (value != null) {
-                                setState(() => selectedTaskConfig = value);
-                              }
-                            },
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: _buildConfigDropdown(
+                              label: '任务配置',
+                              value: selectedTaskConfig,
+                              items: taskConfigs.map((config) {
+                                return DropdownMenuItem(
+                                  value: config,
+                                  child: Text(config.name),
+                                );
+                              }).toList(),
+                              onChanged: (value) {
+                                if (value != null) {
+                                  setState(() => selectedTaskConfig = value);
+                                }
+                              },
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: _buildTextField(
-                            label: '循环次数',
-                            controller: _loopCountController,
-                            keyboardType: TextInputType.number,
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: _buildTextField(
+                              label: '循环次数',
+                              controller: _loopCountController,
+                              keyboardType: TextInputType.number,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
             const SizedBox(height: 24),
             
             // 结果显示部分
-            Card(
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: BorderSide(color: colorScheme.outlineVariant),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '运行结果',
-                      style: textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 24),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildResultCard(
-                            context,
-                            title: '模型 1',
-                            content: ModelService.instance.model1Result,
-                            isActive: ModelService.instance.status == RunningStatus.running && 
-                                    ModelService.instance.currentModelIndex == 1,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: _buildResultCard(
-                            context,
-                            title: '模型 2',
-                            content: ModelService.instance.model2Result,
-                            isActive: ModelService.instance.status == RunningStatus.running && 
-                                    ModelService.instance.currentModelIndex == 2,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: _buildResultCard(
-                            context,
-                            title: '模型 3',
-                            content: ModelService.instance.model3Result,
-                            isActive: ModelService.instance.status == RunningStatus.running && 
-                                    ModelService.instance.currentModelIndex == 3,
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (ModelService.instance.status == RunningStatus.running)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 16),
-                        child: Text(
-                          ModelService.instance.getProgressDescription(),
-                          style: textTheme.bodyMedium?.copyWith(
-                            color: colorScheme.primary,
-                          ),
-                        ),
+            MouseRegion(
+              cursor: SystemMouseCursors.basic,
+              child: Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: colorScheme.outlineVariant),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '运行结果',
+                        style: textTheme.titleLarge,
                       ),
-                  ],
+                      const SizedBox(height: 24),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildResultCard(
+                              context,
+                              title: '模型 1',
+                              content: ModelService.instance.model1Result,
+                              isActive: ModelService.instance.status == RunningStatus.running && 
+                                      ModelService.instance.currentModelIndex == 1,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: _buildResultCard(
+                              context,
+                              title: '模型 2',
+                              content: ModelService.instance.model2Result,
+                              isActive: ModelService.instance.status == RunningStatus.running && 
+                                      ModelService.instance.currentModelIndex == 2,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: _buildResultCard(
+                              context,
+                              title: '模型 3',
+                              content: ModelService.instance.model3Result,
+                              isActive: ModelService.instance.status == RunningStatus.running && 
+                                      ModelService.instance.currentModelIndex == 3,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (ModelService.instance.status == RunningStatus.running)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 16),
+                          child: Text(
+                            ModelService.instance.getProgressDescription(),
+                            style: textTheme.bodyMedium?.copyWith(
+                              color: colorScheme.primary,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ),
             const SizedBox(height: 24),
             
             // 开始按钮
-            Center(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  FilledButton.icon(
-                    onPressed: ModelService.instance.canProceed() ? () async {
-                      // 初始化模型服务
-                      final loopCount = int.tryParse(_loopCountController.text) ?? 1;
-                      final service = ModelService.instance;
-                      service.init(
-                        selectedApiConfig: selectedApiConfig,
-                        selectedTaskConfig: selectedTaskConfig,
-                        selectedLoopCount: loopCount,
-                      );
-                      
-                      // 运行模型
-                      await service.run(
-                        onProgress: (loop, modelIndex, status) {
-                          if (_mounted && mounted) {
+            MouseRegion(
+              cursor: SystemMouseCursors.basic,
+              child: Center(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    FilledButton.icon(
+                      onPressed: ModelService.instance.canProceed() ? () async {
+                        // 初始化模型服务
+                        final loopCount = int.tryParse(_loopCountController.text) ?? 1;
+                        final service = ModelService.instance;
+                        service.init(
+                          selectedApiConfig: selectedApiConfig,
+                          selectedTaskConfig: selectedTaskConfig,
+                          selectedLoopCount: loopCount,
+                        );
+                        
+                        // 运行模型
+                        await service.run(
+                          onProgress: (loop, modelIndex, status) {
+                            if (_mounted && mounted) {
+                              setState(() {
+                                // 状态更新会触发UI重建
+                              });
+                            }
+                          },
+                          onComplete: (success, error) {
+                            if (!_mounted || !mounted) return;
+                            
+                            if (!success) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('运行出错: $error'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
                             setState(() {
-                              // 状态更新会触发UI重建
+                              // 完成后更新UI
                             });
-                          }
-                        },
-                        onComplete: (success, error) {
-                          if (!_mounted || !mounted) return;
-                          
-                          if (!success) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('运行出错: $error'),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
-                          }
-                          setState(() {
-                            // 完成后更新UI
-                          });
-                        },
-                      );
-                    } : null,
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 32,
-                        vertical: 16,
-                      ),
-                    ),
-                    icon: ModelService.instance.status == RunningStatus.running
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                            ),
-                          )
-                        : const Icon(Icons.play_arrow),
-                    label: Text(
-                      ModelService.instance.status == RunningStatus.running
-                          ? '运行中...'
-                          : '开始运行'
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  if (ModelService.instance.status == RunningStatus.running)
-                    OutlinedButton.icon(
-                      onPressed: () {
-                        ModelService.instance.cancel();
-                        setState(() {});
-                      },
-                      style: OutlinedButton.styleFrom(
+                          },
+                        );
+                      } : null,
+                      style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 32,
                           vertical: 16,
                         ),
                       ),
-                      icon: const Icon(Icons.stop),
-                      label: const Text('取消'),
+                      icon: ModelService.instance.status == RunningStatus.running
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            )
+                          : const Icon(Icons.play_arrow),
+                      label: Text(
+                        ModelService.instance.status == RunningStatus.running
+                            ? '运行中...'
+                            : '开始运行'
+                      ),
                     ),
-                ],
+                    const SizedBox(width: 16),
+                    if (ModelService.instance.status == RunningStatus.running)
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          ModelService.instance.cancel();
+                          setState(() {});
+                        },
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 32,
+                            vertical: 16,
+                          ),
+                        ),
+                        icon: const Icon(Icons.stop),
+                        label: const Text('取消'),
+                      ),
+                  ],
+                ),
               ),
             ),
           ],

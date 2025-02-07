@@ -1,5 +1,5 @@
 name: prompt_writer
-description: "A new Flutter project."
+description: "一个基于多模型协同的提示词优化工具，通过让多个大语言模型互相交互，类似于 GAN 的方式不断优化和改进提示词的质量。"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -41,6 +41,8 @@ dependencies:
   path_provider: ^2.1.2
   intl: ^0.19.0
   http: ^1.2.0
+  url_launcher: ^6.2.5
+  flutter_neumorphic_plus: ^3.0.0
 
 dev_dependencies:
   flutter_test:

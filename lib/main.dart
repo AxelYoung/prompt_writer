@@ -21,6 +21,8 @@ void main() async {
     minimumSize: Size(800, 600),
     center: true,
     title: 'Prompt Writer',
+    titleBarStyle: TitleBarStyle.hidden,
+    windowButtonVisibility: false,
   );
   await windowManager.waitUntilReadyToShow(windowOptions, () async {
     await windowManager.show();
@@ -53,7 +55,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF6750A4),
+          seedColor: const Color(0xFF1E555C),
           brightness: Brightness.light,
         ),
         fontFamily: 'Microsoft YaHei',
@@ -61,7 +63,7 @@ class MyApp extends StatelessWidget {
       darkTheme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF6750A4),
+          seedColor: const Color(0xFF1E555C),
           brightness: Brightness.dark,
         ),
         fontFamily: 'Microsoft YaHei',

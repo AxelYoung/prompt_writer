@@ -1,15 +1,15 @@
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
+import 'dart:io';
+import 'dart:convert';
 import '../models/prompt_config.dart';
 
 class HiveService {
   static const String promptConfigBox = 'promptConfigs';
-
+  static const String backupDir = 'backups';
+  
   static Future<void> init() async {
     try {
-      // 先初始化 Hive
-      await Hive.initFlutter();
-      
       // 注册适配器
       if (!Hive.isAdapterRegistered(0)) {
         Hive.registerAdapter(PromptConfigAdapter());
@@ -20,16 +20,21 @@ class HiveService {
       
       // 获取文档目录
       final appDocumentDir = await getApplicationDocumentsDirectory();
+      final backupPath = '${appDocumentDir.path}/$backupDir';
       
-      // 清理旧数据（如果需要的话）
-      if (Hive.isBoxOpen(promptConfigBox)) {
-        await Hive.box(promptConfigBox).clear();
-      } else {
-        await Hive.deleteBoxFromDisk(promptConfigBox);
+      // 创建备份目录
+      await Directory(backupPath).create(recursive: true);
+      
+      // 打开盒子（如果不存在则创建）
+      if (!Hive.isBoxOpen(promptConfigBox)) {
+        await Hive.openBox<PromptConfig>(promptConfigBox);
       }
       
-      // 打开盒子
-      await Hive.openBox<PromptConfig>(promptConfigBox);
+      // 如果盒子是空的，创建默认配置
+      final box = Hive.box<PromptConfig>(promptConfigBox);
+      if (box.isEmpty) {
+        await createDefaultConfig('默认配置', '默认API配置');
+      }
     } catch (e) {
       print('Hive 初始化错误: $e');
       rethrow;
@@ -46,18 +51,21 @@ class HiveService {
   static Future<void> addConfig(PromptConfig config) async {
     final box = Hive.box<PromptConfig>(promptConfigBox);
     await box.add(config);
+    await createBackup(); // 添加配置后创建备份
   }
 
   // 更新配置
   static Future<void> updateConfig(int index, PromptConfig config) async {
     final box = Hive.box<PromptConfig>(promptConfigBox);
     await box.putAt(index, config);
+    await createBackup(); // 更新配置后创建备份
   }
 
   // 删除配置
   static Future<void> deleteConfig(int index) async {
     final box = Hive.box<PromptConfig>(promptConfigBox);
     await box.deleteAt(index);
+    await createBackup(); // 删除配置后创建备份
   }
 
   // 创建默认配置
@@ -66,9 +74,163 @@ class HiveService {
     await addConfig(config);
   }
 
+  // 创建备份
+  static Future<void> createBackup() async {
+    try {
+      final appDocumentDir = await getApplicationDocumentsDirectory();
+      final backupPath = '${appDocumentDir.path}/$backupDir';
+      final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-');
+      final backupFile = File('$backupPath/backup_$timestamp.hive');
+      
+      final box = Hive.box<PromptConfig>(promptConfigBox);
+      final configs = box.values.toList();
+      
+      // 将数据序列化为 JSON
+      final jsonData = configs.map((config) => {
+        'name': config.name,
+        'description': config.description,
+        'systemPrompts': config.systemPrompts,
+        'models': config.models.map((model) => {
+          'model': model.model,
+          'apiKey': model.apiKey,
+          'baseUrl': model.baseUrl,
+          'temperature': model.temperature,
+          'topP': model.topP,
+          'maxTokens': model.maxTokens,
+          'n': model.n,
+          'presencePenalty': model.presencePenalty,
+          'frequencyPenalty': model.frequencyPenalty,
+          'headers': model.headers,
+          'stream': model.stream,
+        }).toList(),
+      }).toList();
+      
+      // 写入备份文件
+      await backupFile.writeAsString(jsonEncode(jsonData));
+      
+      // 只保留最近的5个备份
+      final dir = Directory(backupPath);
+      final files = await dir.list().toList();
+      if (files.length > 5) {
+        files.sort((a, b) => a.statSync().modified.compareTo(b.statSync().modified));
+        for (var i = 0; i < files.length - 5; i++) {
+          await files[i].delete();
+        }
+      }
+    } catch (e) {
+      print('创建备份失败: $e');
+    }
+  }
+
+  // 从备份恢复
+  static Future<bool> restoreFromBackup(String backupFileName) async {
+    try {
+      final appDocumentDir = await getApplicationDocumentsDirectory();
+      final backupPath = '${appDocumentDir.path}/$backupDir/$backupFileName';
+      final backupFile = File(backupPath);
+      
+      if (!await backupFile.exists()) {
+        throw Exception('备份文件不存在');
+      }
+      
+      // 读取备份文件
+      final jsonString = await backupFile.readAsString();
+      final jsonData = jsonDecode(jsonString) as List;
+      
+      // 清空当前数据
+      final box = Hive.box<PromptConfig>(promptConfigBox);
+      await box.clear();
+      
+      // 恢复数据
+      for (final configData in jsonData) {
+        final config = PromptConfig(
+          name: configData['name'],
+          description: configData['description'],
+          systemPrompts: Map<String, String>.from(configData['systemPrompts']),
+          models: (configData['models'] as List).map((modelData) => ModelConfig(
+            model: modelData['model'],
+            apiKey: modelData['apiKey'],
+            baseUrl: modelData['baseUrl'],
+            temperature: modelData['temperature'],
+            topP: modelData['topP'],
+            maxTokens: modelData['maxTokens'],
+            n: modelData['n'],
+            presencePenalty: modelData['presencePenalty'],
+            frequencyPenalty: modelData['frequencyPenalty'],
+            headers: Map<String, String>.from(modelData['headers']),
+            stream: modelData['stream'],
+          )).toList(),
+        );
+        await box.add(config);
+      }
+      
+      return true;
+    } catch (e) {
+      print('从备份恢复失败: $e');
+      return false;
+    }
+  }
+
+  // 获取所有备份文件
+  static Future<List<String>> getBackupFiles() async {
+    try {
+      final appDocumentDir = await getApplicationDocumentsDirectory();
+      final backupPath = '${appDocumentDir.path}/$backupDir';
+      final dir = Directory(backupPath);
+      
+      if (!await dir.exists()) {
+        return [];
+      }
+      
+      final files = await dir.list()
+          .where((entity) => entity is File && entity.path.endsWith('.hive'))
+          .map((entity) => entity.path.split('/').last)
+          .toList();
+      
+      return files;
+    } catch (e) {
+      print('获取备份文件列表失败: $e');
+      return [];
+    }
+  }
+
   // 清理所有数据
   static Future<void> clearAll() async {
-    final box = Hive.box<PromptConfig>(promptConfigBox);
-    await box.clear();
+    try {
+      final box = Hive.box<PromptConfig>(promptConfigBox);
+      await box.clear();
+      await createBackup(); // 清理后创建一个空备份
+    } catch (e) {
+      print('清理数据失败: $e');
+      rethrow;
+    }
+  }
+
+  // 清除所有 Hive 数据
+  static Future<void> clearAllData() async {
+    try {
+      // 清除 promptConfigs
+      if (Hive.isBoxOpen(promptConfigBox)) {
+        final box = Hive.box<PromptConfig>(promptConfigBox);
+        await box.clear();
+      }
+      
+      // 清除 chat_histories
+      if (Hive.isBoxOpen('chat_histories')) {
+        final box = Hive.box('chat_histories');
+        await box.clear();
+      }
+      
+      // 删除所有 Hive 数据文件
+      await Hive.deleteFromDisk();
+      
+      // 重新初始化
+      await init();
+      
+      print('已清除所有 Hive 数据并重新初始化');
+    } catch (e) {
+      print('清除 Hive 数据失败: $e');
+      rethrow;
+    }
   }
 } 

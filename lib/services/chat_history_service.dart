@@ -1,9 +1,11 @@
 import 'package:hive_flutter/hive_flutter.dart';
 import '../models/chat_history.dart';
 import 'package:intl/intl.dart';
+import '../models/task_config.dart';
+import '../services/task_service.dart';
 
 class ChatHistoryService {
-  static const String chatHistoryBox = 'chatHistory';
+  static const String chatHistoryBox = 'chat_histories';
   static Box<ChatHistory>? _box;
 
   // 初始化
@@ -43,6 +45,10 @@ class ChatHistoryService {
       modelIndex: 1,
       sendMessage: '这是发送给模型1的第一条消息',
       responseMessage: '这是模型1的第一次回复，测试长文本效果测试长文本效果测试长文本效果测试长文本效果测试长文本效果测试长文本效果',
+      taskPurpose: '这是测试任务1的目的',
+      corpus: '这是测试任务1的语料',
+      model1Prompt: '这是测试任务1的模型1提示词',
+      model2Prompt: '这是测试任务1的模型2提示词',
     );
 
     await addMessage(
@@ -60,6 +66,10 @@ class ChatHistoryService {
       modelIndex: 1,
       sendMessage: '任务2的第一条消息',
       responseMessage: '任务2模型1的回复',
+      taskPurpose: '这是测试任务2的目的',
+      corpus: '这是测试任务2的语料',
+      model1Prompt: '这是测试任务2的模型1提示词',
+      model2Prompt: '这是测试任务2的模型2提示词',
     );
 
     await addMessage(
@@ -130,6 +140,10 @@ class ChatHistoryService {
     required int modelIndex,
     required String sendMessage,
     required String responseMessage,
+    String? taskPurpose,
+    String? corpus,
+    String? model1Prompt,
+    String? model2Prompt,
   }) async {
     if (_box == null) {
       throw StateError('ChatHistoryService 未初始化');
@@ -144,12 +158,37 @@ class ChatHistoryService {
 
     ChatHistory? history = _box!.get(taskName);
     if (history == null) {
+      // 如果是新的历史记录，从 TaskService 获取任务配置
+      final tasks = TaskService.getAllTasks();
+      final baseTaskName = taskName.split('_').first;
+      final task = tasks.firstWhere(
+        (t) => t.name == baseTaskName,
+        orElse: () => TaskConfig(
+          name: baseTaskName,
+          description: '',
+          taskPurpose: taskPurpose ?? '',
+          corpus: corpus ?? '',
+          model1Prompt: model1Prompt ?? '',
+          model2Prompt: model2Prompt ?? '',
+          model3Prompt: '',
+        ),
+      );
+
       history = ChatHistory(
         taskName: taskName,
         messages: [message],
+        taskPurpose: taskPurpose ?? task.taskPurpose,
+        corpus: corpus ?? task.corpus,
+        model1Prompt: model1Prompt ?? task.model1Prompt,
+        model2Prompt: model2Prompt ?? task.model2Prompt,
       );
     } else {
       history.messages.add(message);
+      // 更新任务设置（如果提供了新的值）
+      if (taskPurpose != null) history.taskPurpose = taskPurpose;
+      if (corpus != null) history.corpus = corpus;
+      if (model1Prompt != null) history.model1Prompt = model1Prompt;
+      if (model2Prompt != null) history.model2Prompt = model2Prompt;
     }
     await _box!.put(taskName, history);
   }
@@ -160,5 +199,34 @@ class ChatHistoryService {
       throw StateError('ChatHistoryService 未初始化');
     }
     await _box!.clear();
+  }
+
+  // 删除指定任务
+  static Future<void> deleteTask(String taskName) async {
+    if (_box == null) {
+      throw StateError('ChatHistoryService 未初始化');
+    }
+    await _box!.delete(taskName);
+  }
+
+  static Future<void> createHistory(ChatHistory history) async {
+    if (_box == null) {
+      throw StateError('ChatHistoryService 未初始化');
+    }
+    await _box!.put(history.taskName, history);
+  }
+
+  static ChatHistory? getHistory(String taskName) {
+    if (_box == null) {
+      throw StateError('ChatHistoryService 未初始化');
+    }
+    return _box!.get(taskName);
+  }
+
+  static Future<void> updateHistory(ChatHistory history) async {
+    if (_box == null) {
+      throw StateError('ChatHistoryService 未初始化');
+    }
+    await _box!.put(history.taskName, history);
   }
 } 

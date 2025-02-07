@@ -1,6 +1,8 @@
 import '../models/prompt_config.dart';
 import '../models/task_config.dart';
+import '../models/chat_history.dart';
 import '../services/chat_history_service.dart';
+import '../services/task_service.dart';
 import '../services/llm_service.dart';
 import 'dart:async';
 
@@ -207,11 +209,11 @@ class ModelService {
     // 提取任务配置参数
     modelParams['任务名称'] = taskConfig.name;
     modelParams['任务描述'] = taskConfig.description;
-    modelParams['总任务目的'] = taskConfig.taskPurpose;
-    modelParams['语料'] = taskConfig.corpus;
-    modelParams['模型1提示词'] = taskConfig.model1Prompt;
-    modelParams['模型2提示词'] = taskConfig.model2Prompt;
-    modelParams['模型3提示词'] = taskConfig.model3Prompt;
+    modelParams['总任务目的'] = taskConfig.taskPurpose ?? '';
+    modelParams['语料'] = taskConfig.corpus ?? '';
+    modelParams['模型1提示词'] = taskConfig.model1Prompt ?? '';
+    modelParams['模型2提示词'] = taskConfig.model2Prompt ?? '';
+    modelParams['模型3提示词'] = taskConfig.model3Prompt ?? '';
   }
 
   // 获取参数值
@@ -259,9 +261,9 @@ class ModelService {
   // 获取当前配置的提示词
   String getPrompt(int modelIndex) {
     String prompt = switch (modelIndex) {
-      1 => taskConfig.model1Prompt,
-      2 => taskConfig.model2Prompt,
-      3 => taskConfig.model3Prompt,
+      1 => taskConfig.model1Prompt ?? '',
+      2 => taskConfig.model2Prompt ?? '',
+      3 => taskConfig.model3Prompt ?? '',
       _ => '',
     };
     
@@ -274,8 +276,8 @@ class ModelService {
       .replaceAll('{模型1结果}', model1Result)
       .replaceAll('{模型2结果}', model2Result)
       .replaceAll('{模型3结果}', model3Result)
-      .replaceAll('{任务目的}', taskConfig.taskPurpose)
-      .replaceAll('{语料}', taskConfig.corpus);
+      .replaceAll('{任务目的}', taskConfig.taskPurpose ?? '')
+      .replaceAll('{语料}', taskConfig.corpus ?? '');
   }
   
   // 获取当前配置的API设置
@@ -294,5 +296,39 @@ class ModelService {
   // 补零
   String _pad(int number) {
     return number.toString().padLeft(2, '0');
+  }
+
+  Future<void> startLoop(String taskName) async {
+    final timestamp = DateTime.now();
+    final taskRunId = '${taskName}_${_formatDateTime(timestamp)}';
+    
+    // 获取任务配置
+    final task = TaskService.getAllTasks().firstWhere(
+      (t) => t.name == taskName,
+      orElse: () => TaskConfig(
+        name: taskName,
+        description: '',
+        taskPurpose: '',
+        corpus: '',
+        model1Prompt: '',
+        model2Prompt: '',
+        model3Prompt: '',
+      ),
+    );
+
+    // 创建新的对话历史并存储任务信息
+    await ChatHistoryService.createHistory(
+      ChatHistory(
+        taskName: taskRunId,
+        messages: [],
+        taskPurpose: task.taskPurpose,
+        corpus: task.corpus,
+        model1Prompt: task.model1Prompt,
+        model2Prompt: task.model2Prompt,
+      ),
+    );
+
+    // 继续原有的循环逻辑
+    // ... existing code ...
   }
 } 

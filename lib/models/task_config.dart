@@ -11,27 +11,27 @@ class TaskConfig {
   String description; // 任务描述
 
   @HiveField(2)
-  String taskPurpose; // 总任务目的
+  String? taskPurpose; // 总任务目的
 
   @HiveField(3)
-  String model1Prompt; // 模型1的prompt
+  String? model1Prompt; // 模型1的prompt
 
   @HiveField(4)
-  String model2Prompt; // 模型2的prompt
+  String? model2Prompt; // 模型2的prompt
 
   @HiveField(5)
-  String model3Prompt; // 模型3的prompt
+  String? model3Prompt; // 模型3的prompt
 
   @HiveField(6)
-  String corpus; // 语料
+  String? corpus; // 语料
 
   TaskConfig({
     required this.name,
     required this.description,
-    required this.taskPurpose,
-    required this.model1Prompt,
-    required this.model2Prompt,
-    required this.model3Prompt,
+    this.taskPurpose = '',
+    this.model1Prompt = '',
+    this.model2Prompt = '',
+    this.model3Prompt = '',
     this.corpus = '', // 默认为空字符串
   });
 
@@ -44,7 +44,7 @@ class TaskConfig {
       model1Prompt: '模型1的提示词',
       model2Prompt: '模型2的提示词',
       model3Prompt: '模型3的提示词',
-      corpus: '请输入语料', // 添加默认语料
+      corpus: '请输入语料',
     );
   }
 } 

@@ -3,6 +3,7 @@ import '../models/prompt_config.dart';
 import '../services/hive_service.dart';
 import '../models/task_config.dart';
 import '../services/task_service.dart';
+import 'package:window_manager/window_manager.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -64,6 +65,32 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _saveConfig() async {
+    // 确保所有字段都有值
+    selectedConfig.name = _nameController.text.trim();
+    if (selectedConfig.name.isEmpty) {
+      selectedConfig.name = '默认配置';
+    }
+    
+    for (int i = 0; i < 3; i++) {
+      final model = selectedConfig.models[i];
+      model.apiKey = _apiKeyControllers[i].text.trim();
+      model.baseUrl = _baseUrlControllers[i].text.trim();
+      model.model = _modelControllers[i].text.trim();
+      model.temperature = _temperatureControllers[i].text.trim();
+      model.topP = _topPControllers[i].text.trim();
+      model.maxTokens = _maxTokensControllers[i].text.trim();
+      model.presencePenalty = _presencePenaltyControllers[i].text.trim();
+      model.frequencyPenalty = _frequencyPenaltyControllers[i].text.trim();
+      
+      // 设置默认值
+      if (model.baseUrl.isEmpty) model.baseUrl = 'https://api.openai.com';
+      if (model.temperature.isEmpty) model.temperature = '0.7';
+      if (model.topP.isEmpty) model.topP = '1';
+      if (model.maxTokens.isEmpty) model.maxTokens = '2000';
+      if (model.presencePenalty.isEmpty) model.presencePenalty = '0';
+      if (model.frequencyPenalty.isEmpty) model.frequencyPenalty = '0';
+    }
+
     final index = configs.indexOf(selectedConfig);
     await HiveService.updateConfig(index, selectedConfig);
     ScaffoldMessenger.of(context).showSnackBar(
@@ -107,164 +134,169 @@ class _SettingsPageState extends State<SettingsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '设置',
-              style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                color: Theme.of(context).colorScheme.primary,
-                fontWeight: FontWeight.bold,
+            DragToMoveArea(
+              child: Text(
+                '设置',
+                style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.primary,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
             const SizedBox(height: 32),
             
             // API 配置部分
-            Card(
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: BorderSide(
-                  color: Theme.of(context).colorScheme.outlineVariant,
+            MouseRegion(
+              cursor: SystemMouseCursors.basic,
+              child: Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                  ),
                 ),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'API 设置',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 24),
-                    Row(
-                      children: [
-                        DropdownButton<PromptConfig>(
-                          value: selectedConfig,
-                          items: [
-                            ...configs.map((config) => DropdownMenuItem<PromptConfig>(
-                                  value: config,
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(config.name),
-                                      const SizedBox(width: 8),
-                                      MouseRegion(
-                                        cursor: SystemMouseCursors.click,
-                                        child: GestureDetector(
-                                          onTap: () async {
-                                            if (configs.length <= 1) {
-                                              ScaffoldMessenger.of(context).showSnackBar(
-                                                const SnackBar(
-                                                  content: Text('无法删除最后一个配置'),
-                                                  backgroundColor: Colors.orange,
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'API 设置',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: 24),
+                      Row(
+                        children: [
+                          DropdownButton<PromptConfig>(
+                            value: selectedConfig,
+                            items: [
+                              ...configs.map((config) => DropdownMenuItem<PromptConfig>(
+                                    value: config,
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(config.name),
+                                        const SizedBox(width: 8),
+                                        MouseRegion(
+                                          cursor: SystemMouseCursors.click,
+                                          child: GestureDetector(
+                                            onTap: () async {
+                                              if (configs.length <= 1) {
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  const SnackBar(
+                                                    content: Text('无法删除最后一个配置'),
+                                                    backgroundColor: Colors.orange,
+                                                  ),
+                                                );
+                                                return;
+                                              }
+
+                                              final result = await showDialog<bool>(
+                                                context: context,
+                                                builder: (context) => AlertDialog(
+                                                  title: const Text('确认删除'),
+                                                  content: Text('确定要删除配置"${config.name}"吗？'),
+                                                  actions: [
+                                                    TextButton(
+                                                      onPressed: () => Navigator.pop(context, false),
+                                                      child: const Text('取消'),
+                                                    ),
+                                                    ElevatedButton(
+                                                      onPressed: () => Navigator.pop(context, true),
+                                                      style: ElevatedButton.styleFrom(
+                                                        backgroundColor: Colors.red,
+                                                      ),
+                                                      child: const Text('删除'),
+                                                    ),
+                                                  ],
                                                 ),
                                               );
-                                              return;
-                                            }
 
-                                            final result = await showDialog<bool>(
-                                              context: context,
-                                              builder: (context) => AlertDialog(
-                                                title: const Text('确认删除'),
-                                                content: Text('确定要删除配置"${config.name}"吗？'),
-                                                actions: [
-                                                  TextButton(
-                                                    onPressed: () => Navigator.pop(context, false),
-                                                    child: const Text('取消'),
-                                                  ),
-                                                  ElevatedButton(
-                                                    onPressed: () => Navigator.pop(context, true),
-                                                    style: ElevatedButton.styleFrom(
-                                                      backgroundColor: Colors.red,
-                                                    ),
-                                                    child: const Text('删除'),
-                                                  ),
-                                                ],
-                                              ),
-                                            );
-
-                                            if (result == true) {
-                                              final index = configs.indexOf(config);
-                                              if (config == selectedConfig) {
-                                                final newConfig = configs.firstWhere((c) => c != config);
-                                                setState(() {
-                                                  selectedConfig = newConfig;
-                                                  _updateTextFields();
-                                                });
+                                              if (result == true) {
+                                                final index = configs.indexOf(config);
+                                                if (config == selectedConfig) {
+                                                  final newConfig = configs.firstWhere((c) => c != config);
+                                                  setState(() {
+                                                    selectedConfig = newConfig;
+                                                    _updateTextFields();
+                                                  });
+                                                }
+                                                await HiveService.deleteConfig(index);
+                                                await _loadConfigs();
                                               }
-                                              await HiveService.deleteConfig(index);
-                                              await _loadConfigs();
-                                            }
-                                          },
-                                          child: const Icon(
-                                            Icons.close,
-                                            size: 18,
-                                            color: Colors.grey,
+                                            },
+                                            child: const Icon(
+                                              Icons.close,
+                                              size: 18,
+                                              color: Colors.grey,
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                    ],
-                                  ),
-                                )),
-                            const DropdownMenuItem(
-                              value: null,
-                              child: Text('+ 新建配置'),
-                            ),
-                          ],
-                          onChanged: _onConfigChanged,
-                        ),
-                        const SizedBox(width: 20),
-                        FilledButton.icon(
-                          onPressed: _saveConfig,
-                          icon: const Icon(Icons.save),
-                          label: const Text('保存'),
-                        ),
-                        const SizedBox(width: 20),
-                        Expanded(
-                          child: TextField(
-                            controller: _nameController,
-                            decoration: const InputDecoration(
-                              labelText: '配置名称',
-                              border: OutlineInputBorder(),
-                            ),
-                            onChanged: (value) {
-                              setState(() {
-                                selectedConfig.name = value;
-                              });
-                            },
+                                      ],
+                                    ),
+                                  )),
+                              const DropdownMenuItem(
+                                value: null,
+                                child: Text('+ 新建配置'),
+                              ),
+                            ],
+                            onChanged: _onConfigChanged,
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 32),
-                    // API 配置卡片
-                    IntrinsicHeight(
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: _ModelConfigCard(
-                              title: '模型1',
-                              config: selectedConfig.models[0],
-                            ),
+                          const SizedBox(width: 20),
+                          FilledButton.icon(
+                            onPressed: _saveConfig,
+                            icon: const Icon(Icons.save),
+                            label: const Text('保存'),
                           ),
                           const SizedBox(width: 20),
                           Expanded(
-                            child: _ModelConfigCard(
-                              title: '模型2',
-                              config: selectedConfig.models[1],
-                            ),
-                          ),
-                          const SizedBox(width: 20),
-                          Expanded(
-                            child: _ModelConfigCard(
-                              title: '模型3',
-                              config: selectedConfig.models[2],
+                            child: TextField(
+                              controller: _nameController,
+                              decoration: const InputDecoration(
+                                labelText: '配置名称',
+                                border: OutlineInputBorder(),
+                              ),
+                              onChanged: (value) {
+                                setState(() {
+                                  selectedConfig.name = value;
+                                });
+                              },
                             ),
                           ),
                         ],
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 32),
+                      // API 配置卡片
+                      IntrinsicHeight(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: _ModelConfigCard(
+                                title: '模型1',
+                                config: selectedConfig.models[0],
+                              ),
+                            ),
+                            const SizedBox(width: 20),
+                            Expanded(
+                              child: _ModelConfigCard(
+                                title: '模型2',
+                                config: selectedConfig.models[1],
+                              ),
+                            ),
+                            const SizedBox(width: 20),
+                            Expanded(
+                              child: _ModelConfigCard(
+                                title: '模型3',
+                                config: selectedConfig.models[2],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -565,11 +597,11 @@ class _TaskConfigSectionState extends State<_TaskConfigSection> {
   // 更新所有输入框的值
   void _updateTextFields() {
     _nameController.text = selectedTask.name;
-    _taskPurposeController.text = selectedTask.taskPurpose;
-    _corpusController.text = selectedTask.corpus;
-    _model1PromptController.text = selectedTask.model1Prompt;
-    _model2PromptController.text = selectedTask.model2Prompt;
-    _model3PromptController.text = selectedTask.model3Prompt;
+    _taskPurposeController.text = selectedTask.taskPurpose ?? '';
+    _corpusController.text = selectedTask.corpus ?? '';
+    _model1PromptController.text = selectedTask.model1Prompt ?? '';
+    _model2PromptController.text = selectedTask.model2Prompt ?? '';
+    _model3PromptController.text = selectedTask.model3Prompt ?? '';
   }
 
   Future<void> _loadTasks() async {
@@ -817,15 +849,15 @@ class _TaskConfigSectionState extends State<_TaskConfigSection> {
                         flex: 3,
                         child: Column(
                           children: [
-                            _buildPromptCard('模型1提示词', selectedTask.model1Prompt, (value) {
+                            _buildPromptCard('模型1提示词', selectedTask.model1Prompt ?? '', (value) {
                               setState(() => selectedTask.model1Prompt = value);
                             }),
                             const SizedBox(height: 16),
-                            _buildPromptCard('模型2提示词', selectedTask.model2Prompt, (value) {
+                            _buildPromptCard('模型2提示词', selectedTask.model2Prompt ?? '', (value) {
                               setState(() => selectedTask.model2Prompt = value);
                             }),
                             const SizedBox(height: 16),
-                            _buildPromptCard('模型3提示词', selectedTask.model3Prompt, (value) {
+                            _buildPromptCard('模型3提示词', selectedTask.model3Prompt ?? '', (value) {
                               setState(() => selectedTask.model3Prompt = value);
                             }),
                           ],

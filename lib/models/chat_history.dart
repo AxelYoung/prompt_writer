@@ -10,9 +10,25 @@ class ChatHistory {
   @HiveField(1)
   List<ChatMessage> messages; // 对话内容列表
 
+  @HiveField(2)
+  String? taskPurpose;
+
+  @HiveField(3)
+  String? corpus;
+
+  @HiveField(4)
+  String? model1Prompt;
+
+  @HiveField(5)
+  String? model2Prompt;
+
   ChatHistory({
     required this.taskName,
     required this.messages,
+    this.taskPurpose,
+    this.corpus,
+    this.model1Prompt,
+    this.model2Prompt,
   });
 }
 
