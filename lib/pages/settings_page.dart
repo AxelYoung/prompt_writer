@@ -4,6 +4,7 @@ import '../services/hive_service.dart';
 import '../models/task_config.dart';
 import '../services/task_service.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:hive/hive.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -18,16 +19,6 @@ class _SettingsPageState extends State<SettingsPage> {
   bool isLoading = true;
   final _nameController = TextEditingController();
   
-  // 添加所有输入框的 controller
-  final _apiKeyControllers = List.generate(3, (_) => TextEditingController());
-  final _baseUrlControllers = List.generate(3, (_) => TextEditingController());
-  final _modelControllers = List.generate(3, (_) => TextEditingController());
-  final _temperatureControllers = List.generate(3, (_) => TextEditingController());
-  final _topPControllers = List.generate(3, (_) => TextEditingController());
-  final _maxTokensControllers = List.generate(3, (_) => TextEditingController());
-  final _presencePenaltyControllers = List.generate(3, (_) => TextEditingController());
-  final _frequencyPenaltyControllers = List.generate(3, (_) => TextEditingController());
-
   @override
   void initState() {
     super.initState();
@@ -37,18 +28,6 @@ class _SettingsPageState extends State<SettingsPage> {
   // 更新所有输入框的值
   void _updateTextFields() {
     _nameController.text = selectedConfig.name;
-    
-    for (int i = 0; i < 3; i++) {
-      final model = selectedConfig.models[i];
-      _apiKeyControllers[i].text = model.apiKey;
-      _baseUrlControllers[i].text = model.baseUrl;
-      _modelControllers[i].text = model.model;
-      _temperatureControllers[i].text = model.temperature;
-      _topPControllers[i].text = model.topP;
-      _maxTokensControllers[i].text = model.maxTokens;
-      _presencePenaltyControllers[i].text = model.presencePenalty;
-      _frequencyPenaltyControllers[i].text = model.frequencyPenalty;
-    }
   }
 
   Future<void> _loadConfigs() async {
@@ -65,37 +44,64 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _saveConfig() async {
-    // 确保所有字段都有值
-    selectedConfig.name = _nameController.text.trim();
-    if (selectedConfig.name.isEmpty) {
-      selectedConfig.name = '默认配置';
-    }
-    
-    for (int i = 0; i < 3; i++) {
-      final model = selectedConfig.models[i];
-      model.apiKey = _apiKeyControllers[i].text.trim();
-      model.baseUrl = _baseUrlControllers[i].text.trim();
-      model.model = _modelControllers[i].text.trim();
-      model.temperature = _temperatureControllers[i].text.trim();
-      model.topP = _topPControllers[i].text.trim();
-      model.maxTokens = _maxTokensControllers[i].text.trim();
-      model.presencePenalty = _presencePenaltyControllers[i].text.trim();
-      model.frequencyPenalty = _frequencyPenaltyControllers[i].text.trim();
-      
-      // 设置默认值
-      if (model.baseUrl.isEmpty) model.baseUrl = 'https://api.openai.com';
-      if (model.temperature.isEmpty) model.temperature = '0.7';
-      if (model.topP.isEmpty) model.topP = '1';
-      if (model.maxTokens.isEmpty) model.maxTokens = '2000';
-      if (model.presencePenalty.isEmpty) model.presencePenalty = '0';
-      if (model.frequencyPenalty.isEmpty) model.frequencyPenalty = '0';
-    }
+    try {
+      // 确保所有字段都有值
+      selectedConfig.name = _nameController.text.trim();
+      if (selectedConfig.name.isEmpty) {
+        selectedConfig.name = '默认配置';
+      }
 
-    final index = configs.indexOf(selectedConfig);
-    await HiveService.updateConfig(index, selectedConfig);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('配置已保存')),
-    );
+      // 打印调试信息
+      for (int i = 0; i < 3; i++) {
+        final model = selectedConfig.models[i];
+        print('保存模型${i + 1}配置:');
+        print('  API Key: ${model.apiKey}');
+        print('  Base URL: ${model.baseUrl}');
+        print('  Model: ${model.model}');
+        print('  Temperature: ${model.temperature}');
+        print('  Top P: ${model.topP}');
+        print('  Max Tokens: ${model.maxTokens}');
+        print('  Presence Penalty: ${model.presencePenalty}');
+        print('  Frequency Penalty: ${model.frequencyPenalty}');
+        
+        // 设置默认值
+        if (model.baseUrl.isEmpty) model.baseUrl = 'https://api.openai.com';
+        if (model.temperature.isEmpty) model.temperature = '0.7';
+        if (model.topP.isEmpty) model.topP = '1';
+        if (model.maxTokens.isEmpty) model.maxTokens = '2000';
+        if (model.presencePenalty.isEmpty) model.presencePenalty = '0';
+        if (model.frequencyPenalty.isEmpty) model.frequencyPenalty = '0';
+      }
+
+      final index = configs.indexOf(selectedConfig);
+      
+      // 确保 Hive box 是打开的
+      if (!Hive.isBoxOpen(HiveService.promptConfigBox)) {
+        await Hive.openBox<PromptConfig>(HiveService.promptConfigBox);
+      }
+      
+      // 等待更新完成
+      await HiveService.updateConfig(index, selectedConfig);
+      
+      // 重新加载配置以验证保存是否成功
+      await _loadConfigs();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('配置已保存')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('保存失败: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      print('保存配置失败: $e');
+    }
   }
 
   Future<void> _createNewConfig() async {
@@ -312,20 +318,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   void dispose() {
-    // 释放所有 controller
     _nameController.dispose();
-    for (var controller in [
-      ..._apiKeyControllers,
-      ..._baseUrlControllers,
-      ..._modelControllers,
-      ..._temperatureControllers,
-      ..._topPControllers,
-      ..._maxTokensControllers,
-      ..._presencePenaltyControllers,
-      ..._frequencyPenaltyControllers,
-    ]) {
-      controller.dispose();
-    }
     super.dispose();
   }
 }
@@ -360,6 +353,50 @@ class _ModelConfigCardState extends State<_ModelConfigCard> {
   void initState() {
     super.initState();
     _updateTextFields();
+    _setupControllerListeners();
+  }
+
+  void _setupControllerListeners() {
+    _apiKeyController.addListener(() {
+      setState(() {
+        widget.config.apiKey = _apiKeyController.text.trim();
+      });
+    });
+    _baseUrlController.addListener(() {
+      setState(() {
+        widget.config.baseUrl = _baseUrlController.text.trim();
+      });
+    });
+    _modelController.addListener(() {
+      setState(() {
+        widget.config.model = _modelController.text.trim();
+      });
+    });
+    _temperatureController.addListener(() {
+      setState(() {
+        widget.config.temperature = _temperatureController.text.trim();
+      });
+    });
+    _topPController.addListener(() {
+      setState(() {
+        widget.config.topP = _topPController.text.trim();
+      });
+    });
+    _maxTokensController.addListener(() {
+      setState(() {
+        widget.config.maxTokens = _maxTokensController.text.trim();
+      });
+    });
+    _presencePenaltyController.addListener(() {
+      setState(() {
+        widget.config.presencePenalty = _presencePenaltyController.text.trim();
+      });
+    });
+    _frequencyPenaltyController.addListener(() {
+      setState(() {
+        widget.config.frequencyPenalty = _frequencyPenaltyController.text.trim();
+      });
+    });
   }
 
   void _updateTextFields() {
@@ -416,17 +453,11 @@ class _ModelConfigCardState extends State<_ModelConfigCard> {
                 ),
                 const SizedBox(height: 16),
                 // 必要参数
-                _buildTextField('API Key', _apiKeyController, (value) {
-                  setState(() => widget.config.apiKey = value);
-                }),
+                _buildTextField('API Key', _apiKeyController),
                 const SizedBox(height: 8),
-                _buildTextField('Base URL', _baseUrlController, (value) {
-                  setState(() => widget.config.baseUrl = value);
-                }),
+                _buildTextField('Base URL', _baseUrlController),
                 const SizedBox(height: 8),
-                _buildTextField('Model', _modelController, (value) {
-                  setState(() => widget.config.model = value);
-                }),
+                _buildTextField('Model', _modelController),
                 const SizedBox(height: 16),
                 // 高级设置（折叠）
                 Theme(
@@ -440,21 +471,11 @@ class _ModelConfigCardState extends State<_ModelConfigCard> {
                       setState(() => showAdvanced = value);
                     },
                     children: [
-                      _buildSlider('Temperature', _temperatureController, (value) {
-                        setState(() => widget.config.temperature = value);
-                      }, 0, 2),
-                      _buildSlider('Top P', _topPController, (value) {
-                        setState(() => widget.config.topP = value);
-                      }, 0, 1),
-                      _buildNumberField('Max Tokens', _maxTokensController, (value) {
-                        setState(() => widget.config.maxTokens = value);
-                      }),
-                      _buildSlider('Presence Penalty', _presencePenaltyController, (value) {
-                        setState(() => widget.config.presencePenalty = value);
-                      }, -2, 2),
-                      _buildSlider('Frequency Penalty', _frequencyPenaltyController, (value) {
-                        setState(() => widget.config.frequencyPenalty = value);
-                      }, -2, 2),
+                      _buildSlider('Temperature', _temperatureController, 0, 2),
+                      _buildSlider('Top P', _topPController, 0, 1),
+                      _buildNumberField('Max Tokens', _maxTokensController),
+                      _buildSlider('Presence Penalty', _presencePenaltyController, -2, 2),
+                      _buildSlider('Frequency Penalty', _frequencyPenaltyController, -2, 2),
                       SwitchListTile(
                         title: const Text('Stream', style: TextStyle(fontFamily: 'Microsoft YaHei')),
                         value: widget.config.stream,
@@ -473,7 +494,7 @@ class _ModelConfigCardState extends State<_ModelConfigCard> {
     );
   }
 
-  Widget _buildTextField(String label, TextEditingController controller, ValueChanged<String> onChanged) {
+  Widget _buildTextField(String label, TextEditingController controller) {
     return TextField(
       controller: controller,
       decoration: InputDecoration(
@@ -482,11 +503,10 @@ class _ModelConfigCardState extends State<_ModelConfigCard> {
         labelStyle: const TextStyle(fontFamily: 'Microsoft YaHei'),
       ),
       style: const TextStyle(fontFamily: 'Microsoft YaHei'),
-      onChanged: onChanged,
     );
   }
 
-  Widget _buildNumberField(String label, TextEditingController controller, ValueChanged<String> onChanged) {
+  Widget _buildNumberField(String label, TextEditingController controller) {
     return TextField(
       controller: controller,
       decoration: InputDecoration(
@@ -496,11 +516,10 @@ class _ModelConfigCardState extends State<_ModelConfigCard> {
       ),
       style: const TextStyle(fontFamily: 'Microsoft YaHei'),
       keyboardType: TextInputType.number,
-      onChanged: onChanged,
     );
   }
 
-  Widget _buildSlider(String label, TextEditingController controller, ValueChanged<String> onChanged, double min, double max) {
+  Widget _buildSlider(String label, TextEditingController controller, double min, double max) {
     final doubleValue = double.tryParse(controller.text) ?? min;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -517,7 +536,6 @@ class _ModelConfigCardState extends State<_ModelConfigCard> {
           label: doubleValue.toStringAsFixed(2),
           onChanged: (newValue) {
             controller.text = newValue.toString();
-            onChanged(newValue.toString());
           },
         ),
       ],

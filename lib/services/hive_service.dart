@@ -56,9 +56,65 @@ class HiveService {
 
   // 更新配置
   static Future<void> updateConfig(int index, PromptConfig config) async {
-    final box = Hive.box<PromptConfig>(promptConfigBox);
-    await box.putAt(index, config);
-    await createBackup(); // 更新配置后创建备份
+    try {
+      final box = Hive.box<PromptConfig>(promptConfigBox);
+      
+      // 验证 box 是否正确打开
+      if (!box.isOpen) {
+        throw Exception('Hive box 未打开');
+      }
+      
+      // 验证索引是否有效
+      if (index < 0 || index >= box.length) {
+        throw Exception('无效的配置索引: $index');
+      }
+      
+      print('准备更新配置:');
+      print('  索引: $index');
+      print('  配置名称: ${config.name}');
+      for (int i = 0; i < config.models.length; i++) {
+        final model = config.models[i];
+        print('  模型${i + 1}:');
+        print('    API Key: ${model.apiKey}');
+        print('    Base URL: ${model.baseUrl}');
+        print('    Model: ${model.model}');
+        print('    Temperature: ${model.temperature}');
+        print('    Top P: ${model.topP}');
+        print('    Max Tokens: ${model.maxTokens}');
+        print('    Presence Penalty: ${model.presencePenalty}');
+        print('    Frequency Penalty: ${model.frequencyPenalty}');
+      }
+      
+      // 保存配置
+      await box.putAt(index, config);
+      print('成功更新配置: ${config.name} at index $index');
+      
+      // 验证保存是否成功
+      final savedConfig = box.getAt(index);
+      if (savedConfig == null) {
+        throw Exception('保存后无法读取配置');
+      }
+      print('验证保存结果:');
+      print('  配置名称: ${savedConfig.name}');
+      for (int i = 0; i < savedConfig.models.length; i++) {
+        final model = savedConfig.models[i];
+        print('  模型${i + 1}:');
+        print('    API Key: ${model.apiKey}');
+        print('    Base URL: ${model.baseUrl}');
+        print('    Model: ${model.model}');
+        print('    Temperature: ${model.temperature}');
+        print('    Top P: ${model.topP}');
+        print('    Max Tokens: ${model.maxTokens}');
+        print('    Presence Penalty: ${model.presencePenalty}');
+        print('    Frequency Penalty: ${model.frequencyPenalty}');
+      }
+      
+      // 创建备份
+      await createBackup();
+    } catch (e) {
+      print('更新配置失败: $e');
+      rethrow;
+    }
   }
 
   // 删除配置

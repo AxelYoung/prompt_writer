@@ -76,12 +76,34 @@ class ModelService {
     _extractParams();
   }
 
+  // 重置所有参数
+  void _resetParams() {
+    // 重置模型结果
+    model1Result = '';
+    model2Result = '';
+    model3Result = '';
+    
+    // 重置运行状态
+    currentLoop = 0;
+    currentModelIndex = 0;
+    _status = RunningStatus.idle;
+    _lastError = null;
+    _isCancelled = false;
+    
+    // 清空参数映射
+    modelParams.clear();
+    
+    // 重新提取默认参数
+    _extractParams();
+  }
+
   // 取消运行
   void cancel() {
     if (_status == RunningStatus.running) {
       _isCancelled = true;
       _status = RunningStatus.idle;
       _lastError = '用户取消了运行';
+      _resetParams(); // 重置参数
     }
   }
 
@@ -94,9 +116,17 @@ class ModelService {
       throw StateError('模型正在运行中');
     }
 
+    // 先重置所有参数到初始状态
+    _resetParams();
+
+    // 然后设置运行状态
     _status = RunningStatus.running;
     _lastError = null;
     _isCancelled = false;
+
+    // 重新提取当前任务的参数
+    _extractParams();
+
     final timestamp = DateTime.now();
     final taskRunId = '${taskConfig.name}_${_formatDateTime(timestamp)}';
     final llmService = LLMService.instance;
@@ -163,12 +193,20 @@ class ModelService {
       
       _status = _isCancelled ? RunningStatus.idle : RunningStatus.completed;
       onComplete?.call(!_isCancelled, _isCancelled ? '用户取消了运行' : null);
+      
+      // 运行完成后重置参数
+      _resetParams();
+      
       return !_isCancelled;
     } catch (e) {
       print('运行错误: $e');
       _status = RunningStatus.error;
       _lastError = e.toString();
       onComplete?.call(false, e.toString());
+      
+      // 发生错误时也重置参数
+      _resetParams();
+      
       return false;
     }
   }
